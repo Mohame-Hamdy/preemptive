@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'gantt_chart.dart';
 
 void main() {
   runApp(MyApp());
@@ -30,8 +29,18 @@ class Result {
   final int tat;
   final int wt;
   final int rt;
-
-  Result(this.pid, this.tat, this.wt, this.rt);
+  final double averageTat;
+  final double averageWt;
+  final double averageRt;
+  Result(
+    this.pid,
+    this.tat,
+    this.wt,
+    this.rt,
+    this.averageTat,
+    this.averageWt,
+    this.averageRt,
+  );
 }
 
 class ScheduledProcess {
@@ -136,17 +145,130 @@ class _SchedulerHomePageState extends State<SchedulerHomePage> {
     }
 
     List<Result> results = [];
+    int totalTat = 0;
+    int totalWt = 0;
+    int totalRt = 0;
+
     for (int i = 0; i < n; i++) {
       int tat = completionTimes[i]! - _processes[i].arrivalTime;
       int wt = tat - _processes[i].burstTime;
       int rt = startTimes[i]! - _processes[i].arrivalTime;
-      results.add(Result(_processes[i].pid, tat, wt, rt));
+
+      totalTat += tat;
+      totalWt += wt;
+      totalRt += rt;
+    }
+    double averageTat = totalTat / n;
+    double averageWt = totalWt / n;
+    double averageRt = totalRt / n;
+
+    for (int i = 0; i < n; i++) {
+      int tat = completionTimes[i]! - _processes[i].arrivalTime;
+      int wt = tat - _processes[i].burstTime;
+      int rt = startTimes[i]! - _processes[i].arrivalTime;
+      results.add(
+        Result(
+          _processes[i].pid,
+          tat,
+          wt,
+          rt,
+          averageTat,
+          averageWt,
+          averageRt,
+        ),
+      );
     }
 
     setState(() {
       _results = results;
       _gantt = gantt;
     });
+  }
+
+  _getGanttElements() {
+    final Map<String, Color> processColors = {};
+    final List<Color> colorPalette = [
+      Colors.blue.shade300,
+      Colors.green.shade200,
+      Colors.orange.shade300,
+      Colors.deepPurple.shade200,
+      Colors.red.shade300,
+      Colors.teal.shade300,
+      Colors.amber.shade200,
+      Colors.cyan.shade600,
+      Colors.indigo.shade300,
+      Colors.pink.shade300,
+    ];
+    int colorIndex = 0;
+    var endTime;
+    int totalDuration = _gantt.last.endTime.toInt();
+    List<Column> ganttElements = [];
+    ganttElements.addAll(
+      _gantt.map((e) {
+        endTime = e.endTime;
+        if (!processColors.containsKey(e.pid)) {
+          processColors[e.pid] = colorPalette[colorIndex % colorPalette.length];
+          colorIndex++;
+        }
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: (40 * (e.endTime - e.startTime) / totalDuration) * 10,
+                height: 50,
+                margin: EdgeInsets.symmetric(horizontal: 1),
+                color: processColors[e.pid],
+                alignment: Alignment.center,
+                child: RichText(
+                  text: TextSpan(
+                    children: [
+                      TextSpan(
+                        text: 'P',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16, // Larger font for 'P'
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      TextSpan(
+                        text: '${e.pid}',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12, // Smaller font for pid
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Text('${e.startTime}', style: TextStyle(color: Colors.black)),
+          ],
+        );
+      }).toList(),
+    );
+    ganttElements.add(
+      Column(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 50,
+              margin: EdgeInsets.symmetric(horizontal: 1),
+              color: Colors.transparent,
+              alignment: Alignment.center,
+              child: Text("", style: TextStyle(color: Colors.white)),
+            ),
+          ),
+          Text('$endTime', style: TextStyle(color: Colors.black)),
+        ],
+      ),
+    );
+    return ganttElements;
   }
 
   @override
@@ -174,6 +296,9 @@ class _SchedulerHomePageState extends State<SchedulerHomePage> {
                         if (value == null || value.isEmpty) {
                           return 'Enter PID';
                         }
+                        if (_processes.any((p) => p.pid == value)) {
+                          return 'PID must be unique';
+                        }
                         return null;
                       },
                     ),
@@ -185,8 +310,9 @@ class _SchedulerHomePageState extends State<SchedulerHomePage> {
                         if (value == null || value.isEmpty) {
                           return 'Enter a time';
                         }
-                        if (int.tryParse(value) == null) {
-                          return 'Must be a number';
+                        if (int.tryParse(value) == null ||
+                            int.tryParse(value)! <= 0) {
+                          return 'Must be a positive number';
                         }
                         return null;
                       },
@@ -198,8 +324,9 @@ class _SchedulerHomePageState extends State<SchedulerHomePage> {
                         if (value == null || value.isEmpty) {
                           return 'Enter a time';
                         }
-                        if (int.tryParse(value) == null) {
-                          return 'Must be a number';
+                        if (int.tryParse(value) == null ||
+                            int.tryParse(value)! <= 0) {
+                          return 'Must be a positive number';
                         }
                         return null;
                       },
@@ -211,8 +338,9 @@ class _SchedulerHomePageState extends State<SchedulerHomePage> {
                         if (value == null || value.isEmpty) {
                           return 'Enter Priority';
                         }
-                        if (int.tryParse(value) == null) {
-                          return 'Must be a number';
+                        if (int.tryParse(value) == null ||
+                            int.tryParse(value)! <= 0) {
+                          return 'Must be a positive number';
                         }
                         return null;
                       },
@@ -249,20 +377,47 @@ class _SchedulerHomePageState extends State<SchedulerHomePage> {
                     DataColumn(label: Text('TAT')),
                     DataColumn(label: Text('WT')),
                     DataColumn(label: Text('RT')),
+                    DataColumn(label: Text('')),
                   ],
-                  rows:
-                      _results
-                          .map(
-                            (res) => DataRow(
-                              cells: [
-                                DataCell(Text(res.pid)),
-                                DataCell(Text(res.tat.toString())),
-                                DataCell(Text(res.wt.toString())),
-                                DataCell(Text(res.rt.toString())),
-                              ],
-                            ),
-                          )
-                          .toList(),
+                  rows: [
+                    // Show all individual results
+                    ..._results.map(
+                      (res) => DataRow(
+                        cells: [
+                          DataCell(Text(res.pid)),
+                          DataCell(Text(res.tat.toString())),
+                          DataCell(Text(res.wt.toString())),
+                          DataCell(Text(res.rt.toString())),
+                          const DataCell(
+                            Text(''),
+                          ), // Leave average column blank
+                        ],
+                      ),
+                    ),
+                    // Add one row for the average values
+                    DataRow(
+                      cells: [
+                        const DataCell(
+                          Text(
+                            'Average',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        DataCell(
+                          Text(_results.first.averageTat.toStringAsFixed(2)),
+                        ),
+                        DataCell(
+                          Text(_results.first.averageWt.toStringAsFixed(2)),
+                        ),
+                        DataCell(
+                          Text(_results.first.averageRt.toStringAsFixed(2)),
+                        ),
+                        const DataCell(
+                          Text(''),
+                        ), // Optionally remove or use for notes
+                      ],
+                    ),
+                  ],
                 ),
                 SizedBox(height: 16),
                 Text(
@@ -271,55 +426,10 @@ class _SchedulerHomePageState extends State<SchedulerHomePage> {
                 ),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children:
-                        _gantt.map((e) {
-                          return Container(
-                            width: 40,
-                            height: 50,
-                            margin: EdgeInsets.symmetric(horizontal: 1),
-                            color: Colors.blue[300],
-                            alignment: Alignment.center,
-                            child: Text(
-                              e.pid,
-                              style: TextStyle(color: Colors.white),
-                            ),
-                          );
-                        }).toList(),
-                  ),
+                  child: Row(children: _getGanttElements()),
                 ),
-                const Text(
-                  'Gantt Chart',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 10),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: createGanttChartFromProcesses(_processes),
-                ),
-                //   Row(
-                //     children:
-                //         _gantt.map((e) {
-                //           return Container(
-                //             width: 40,
-                //             height: 50,
-                //             margin: EdgeInsets.symmetric(horizontal: 1),
-                //             color: Colors.blue[300],
-                //             alignment: Alignment.center,
-                //             child: Text(
-                //               e.pid,
-                //               style: TextStyle(color: Colors.white),
-                //             ),
-                //           );
-                //         }).toList(),
-                //   ),
-                // ),
-                // Row(
-                //   children:
-                //       _gantt.map((e) => Text('${e.startTime}   ')).toList()
-                //         ..add(Text('${_gantt.last.endTime}')),
-                // ),
               ],
+              SizedBox(height: 16),
             ],
           ),
         ),
