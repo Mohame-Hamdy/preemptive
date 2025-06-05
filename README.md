@@ -2,7 +2,13 @@
 
 os1 project
 
-## Getting Started
+## need refinement
+a college project that needs refinement 
+need to refactor my code to be presentable and more readable 
+
+
+
+### Getting Started
 
 This project is a starting point for a Flutter application.
 
